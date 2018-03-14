@@ -1,4 +1,6 @@
-﻿using System;
+﻿using KBNBot.Jokes;
+using LiteDB;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Telegram.Bot;
@@ -19,6 +21,10 @@ namespace KBNBot
         // Season tip.
         private const int DEFAULT_SEASON_OPENING_DAY = 21;
         private const int DEFAULT_SEASON_OPENING_MONTH = 5;
+        // Database
+        private LiteDatabase db;
+        // Joker to make stupid jokes
+        private Joker joker;
 
         private Random random = new Random();
 
@@ -33,6 +39,10 @@ namespace KBNBot
             foreach (string file in files)
                 gifNames.Add(Path.GetFileName(file));
             Console.WriteLine("Library initialized with {0} gifs.", gifNames.Count);
+            // Load DB.
+            db = new LiteDatabase(@"kbnbot.db");
+            // Initialize Joker
+            joker = new Joker(db);
             // Initialize Telegram API.
             client = new TelegramBotClient(apiToken);
             client.OnMessage += OnMessage;
@@ -57,7 +67,16 @@ namespace KBNBot
                     ProcessGreetings(message);
                     break;
                 case MessageType.TextMessage:
-                    ProcessCommand(message);
+                    if (message.Text.StartsWith("/"))
+                        ProcessCommand(message);
+                    else
+                    {
+                        if(joker.CheckJokes(message.Text))
+                        {
+                            Console.WriteLine("I got a new joke, so funny.");
+                            //client.SendTextMessageAsync(message.Chat.Id, "😂", ParseMode.Default, false, false, message.MessageId);
+                        }
+                    }
                     break;
                 case MessageType.DocumentMessage:
                     ProcessDocument(message);
@@ -93,12 +112,22 @@ namespace KBNBot
                     int count = DEFAULT_GIFS_COUNT;
                     if (command.Length >= 2)
                         int.TryParse(command[1], out count);
-                    Console.WriteLine("{0} {1} asked for {1} gifs!", message.From.FirstName, message.From.LastName, count);
+                    Console.WriteLine("{0} {1} asked for {2} gifs!", message.From.FirstName, message.From.LastName, count);
                     Gimme(message.Chat.Id, count);
                     break;
                 case "/season":
                     Console.WriteLine("{0} {1} wants to ride badly...", message.From.FirstName, message.From.LastName);
                     Season(message.Chat.Id);
+                    break;
+                case "/trackjoke":
+                    var jokeKeys = new string[command.Length - 1];
+                    for (int i = 1; i < command.Length; i++)
+                        jokeKeys[i - 1] = command[i];
+                    Console.WriteLine("{0} {1} is a smartass and come up with a new joke.", message.From.FirstName, message.From.LastName);
+                    joker.TrackJoke(jokeKeys);
+                    break;
+                case "/dumpjokes":
+                    client.SendTextMessageAsync(message.Chat.Id, joker.DumpJokes());
                     break;
             }
         }
@@ -108,7 +137,7 @@ namespace KBNBot
             for (int i = 0; i < count; i++)
             {
                 var gifName = gifNames[random.Next(gifNames.Count)];
-                using (var stream = new FileStream(libraryPath + gifName, FileMode.Open))
+                using (var stream = new FileStream(libraryPath + gifName, System.IO.FileMode.Open))
                 {
                     await client.SendDocumentAsync(chatId, new FileToSend(gifName, stream));
                 }
@@ -127,8 +156,8 @@ namespace KBNBot
             var gifName = message.Document.FileName;
             if (gifName == null || gifName.Equals(string.Empty))
                 return;
-            for(int i = 0; i < gifName.Length; i++)
-                if(gifName[i] == '.')
+            for (int i = 0; i < gifName.Length; i++)
+                if (gifName[i] == '.')
                 {
                     gifName = gifName.Substring(i);
                     break;
@@ -136,7 +165,7 @@ namespace KBNBot
             gifName = gifNames.Count + gifName;
             gifNames.Add(gifName);
             Console.WriteLine("Ow! I've found a new gif: {0}", gifName);
-            using (var stream = new FileStream(libraryPath + gifName, FileMode.OpenOrCreate))
+            using (var stream = new FileStream(libraryPath + gifName, System.IO.FileMode.OpenOrCreate))
             {
                 await client.GetFileAsync(message.Document.FileId, stream);
             }
