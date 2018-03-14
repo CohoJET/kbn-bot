@@ -11,7 +11,7 @@ namespace KBNBot
         {
             var apiToken = ConfigurationManager.AppSettings.Get(API_TOKEN_SETTINGS_KEY);
 
-            using (var bot = new Bot(apiToken))
+            using (var bot = new Bot(apiToken, false))
             {
                 Console.ReadLine();
             }

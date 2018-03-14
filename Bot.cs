@@ -10,6 +10,7 @@ namespace KBNBot
 {
     sealed class Bot : IDisposable
     {
+        private bool isSilent;
         // Gif collection.
         private const int DEFAULT_GIFS_COUNT = 5;
         private const int DEFAULT_GIFS_COUNT_MAX = 25;
@@ -23,7 +24,7 @@ namespace KBNBot
 
         private TelegramBotClient client;
 
-        public Bot(string apiToken)
+        public Bot(string apiToken, bool isSilent)
         {
             // Load GIFs library.
             libraryPath = Directory.GetCurrentDirectory() + @"\Gifs\";
@@ -37,10 +38,15 @@ namespace KBNBot
             client.OnMessage += OnMessage;
             client.StartReceiving();
             Console.WriteLine("Bot is up and running!");
+
+            this.isSilent = isSilent;
         }
 
         private void OnMessage(object sender, MessageEventArgs messageEventArgs)
         {
+            if (isSilent)
+                return;
+
             var message = messageEventArgs.Message;
             if (message == null)
                 return;
@@ -76,7 +82,10 @@ namespace KBNBot
             // Remove mention in group chats.
             for (int i = 0; i < command[0].Length; i++)
                 if (command[0][i] == '@')
+                {
                     command[0] = command[0].Remove(i);
+                    break;
+                }
 
             switch (command[0])
             {
@@ -84,11 +93,11 @@ namespace KBNBot
                     int count = DEFAULT_GIFS_COUNT;
                     if (command.Length >= 2)
                         int.TryParse(command[1], out count);
-                    Console.WriteLine("{0} asked for {1} gifs!", message.From.Username, count);
+                    Console.WriteLine("{0} {1} asked for {1} gifs!", message.From.FirstName, message.From.LastName, count);
                     Gimme(message.Chat.Id, count);
                     break;
                 case "/season":
-                    Console.WriteLine("{0} wants to ride badly...", message.From.Username);
+                    Console.WriteLine("{0} {1} wants to ride badly...", message.From.FirstName, message.From.LastName);
                     Season(message.Chat.Id);
                     break;
             }
@@ -108,20 +117,29 @@ namespace KBNBot
         private async void Season(long chatId)
         {
             var seasonOpening = new DateTime(DateTime.Now.Year, DEFAULT_SEASON_OPENING_MONTH, DEFAULT_SEASON_OPENING_DAY, 0, 0, 0);
-            var daysLeft = (seasonOpening - DateTime.Now).TotalDays;
-            if (daysLeft > 0)
-                await client.SendTextMessageAsync(chatId, string.Format("До сезона осталось ~{0} дней!", (int)daysLeft));
+            var tillSeason = (seasonOpening - DateTime.Now);
+            if (tillSeason.TotalDays > 0)
+                await client.SendTextMessageAsync(chatId, string.Format("До сезона осталось ~ {0} дней, {1} часов и {2} минут!", tillSeason.Days, tillSeason.Hours, tillSeason.Minutes));
         }
 
-        private void ProcessDocument(Message message)
+        private async void ProcessDocument(Message message)
         {
-            var gifName = gifNames.Count + " - " + message.Document.FileName;
-            Console.WriteLine("Ow! I've found a new gif: {0}", gifName);
-            using (var stream = new FileStream(libraryPath + gifNames.Count + " - " + message.Document.FileName, FileMode.OpenOrCreate))
-            {
-                client.GetFileAsync(message.Document.FileId, stream);
-            }
+            var gifName = message.Document.FileName;
+            if (gifName == null || gifName.Equals(string.Empty))
+                return;
+            for(int i = 0; i < gifName.Length; i++)
+                if(gifName[i] == '.')
+                {
+                    gifName = gifName.Substring(i);
+                    break;
+                }
+            gifName = gifNames.Count + gifName;
             gifNames.Add(gifName);
+            Console.WriteLine("Ow! I've found a new gif: {0}", gifName);
+            using (var stream = new FileStream(libraryPath + gifName, FileMode.OpenOrCreate))
+            {
+                await client.GetFileAsync(message.Document.FileId, stream);
+            }
         }
 
         public void Dispose()
