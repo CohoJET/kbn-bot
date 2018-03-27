@@ -61,6 +61,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bot.cs" />
+    <Compile Include="Bratishkas\Quote.cs" />
+    <Compile Include="Bratishkas\Bratishker.cs" />
     <Compile Include="Jokes\Joke.cs" />
     <Compile Include="Jokes\Joker.cs" />
     <Compile Include="Program.cs" />

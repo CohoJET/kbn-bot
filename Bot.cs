@@ -1,4 +1,5 @@
-﻿using KBNBot.Jokes;
+﻿using KBNBot.Bratishkas;
+using KBNBot.Jokes;
 using LiteDB;
 using System;
 using System.Collections.Generic;
@@ -28,6 +29,8 @@ namespace KBNBot
         private readonly string[] GOTIT_EMOTIONS = new string[] { "😂", "😅", "😆", "😋", "🤣", "😹", "😸", "🙀", "😝", "😃", "😀" };
         private Joker joker;
         private DateTime lastJokeCheck;
+        // Bratishker to make people angry
+        private Bratishker bratishker;
 
         private Random random = new Random();
 
@@ -46,6 +49,8 @@ namespace KBNBot
             db = new LiteDatabase(@"kbnbot.db");
             // Initialize Joker
             joker = new Joker(db);
+            // Initialize Bratishker
+            bratishker = new Bratishker(Directory.GetCurrentDirectory() + @"\Bratishkas\", db);
             // Initialize Telegram API.
             client = new TelegramBotClient(apiToken);
             client.OnMessage += OnMessage;
@@ -132,6 +137,14 @@ namespace KBNBot
                 case "/dumpjokes":
                     client.SendTextMessageAsync(message.Chat.Id, joker.DumpJokes());
                     break;
+                case "/bratishka":
+                    Bratishka(message.Chat.Id);
+                    break;
+                case "/addquote":
+                    var quote = message.Text.Remove(0, command[0].Length + 1);
+                    Console.WriteLine("New quote! Check it out: {0}", quote);
+                    bratishker.AddQuote(quote);
+                    break;
             }
         }
         private async void Gimme(long chatId, int count)
@@ -158,6 +171,15 @@ namespace KBNBot
             var tillMaso = (sadoOpening - DateTime.Now);
             if (tillSeason.TotalDays > 0)
                 await client.SendTextMessageAsync(chatId, string.Format("До сезона осталось примерно: дней - {0}, часов - {1}, минут - {2}!" + Environment.NewLine + "А для извращенцев: дней - {3}, часов - {4}, минут - {5}!", tillSeason.Days, tillSeason.Hours, tillSeason.Minutes, tillMaso.Days, tillMaso.Hours, tillMaso.Minutes));
+        }
+        private async void Bratishka(long chatId)
+        {
+            var tuple = bratishker.GetRandomBratishka();
+            using (var stream = new FileStream(tuple.Item1, System.IO.FileMode.Open))
+            {
+                await client.SendPhotoAsync(chatId, new FileToSend("Братишка", stream), tuple.Item2);
+
+            }
         }
 
         private async void ProcessDocument(Message message)
