@@ -30,13 +30,16 @@ namespace KBNBot.Jokes
             if (text.Length < MIN_JOKE_SIZE)
                 return false;
 
+            text = text.ToLower().Replace('"', ' ').Replace('.', ' ').Replace('-', ' ').Replace('?', ' ');
+            //Console.WriteLine(text);
+
             var count = jokes.Count();
             for(int i = 0; i < count; i++)
             {
                 var joke = jokes.Find(j => j.ID == i + 1).First();
                 foreach (var key in joke.Keys)
                 {
-                    if (text.ToLower().Contains(string.Format(" {0} ", key.ToLower())) || text.ToLower().Contains(string.Format(" {0}", key.ToLower())) || text.ToLower().Contains(string.Format("{0} ", key.ToLower())))
+                    if (text.ToLower().Contains(string.Format(" {0} ", key.ToLower())) || text.Contains(string.Format("{0} ", key.ToLower())) || text.Contains(string.Format("{0} ", key.ToLower())))
                     {
                         joke.Jokes.Add(text);
                         jokes.Update(joke);

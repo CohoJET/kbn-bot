@@ -19,12 +19,15 @@ namespace KBNBot
         private string libraryPath;
         private List<string> gifNames;
         // Season tip.
-        private const int DEFAULT_SEASON_OPENING_DAY = 21;
+        private const int DEFAULT_SEASON_OPENING_DAY = 3;
         private const int DEFAULT_SEASON_OPENING_MONTH = 5;
         // Database
         private LiteDatabase db;
         // Joker to make stupid jokes
+        private const int SLEEP_BETWEEN_JOKE_CHECKS = 3;
+        private readonly string[] GOTIT_EMOTIONS = new string[] { "😂", "😅", "😆", "😋", "🤣", "😹", "😸", "🙀", "😝", "😃", "😀" };
         private Joker joker;
+        private DateTime lastJokeCheck;
 
         private Random random = new Random();
 
@@ -54,9 +57,6 @@ namespace KBNBot
 
         private void OnMessage(object sender, MessageEventArgs messageEventArgs)
         {
-            if (isSilent)
-                return;
-
             var message = messageEventArgs.Message;
             if (message == null)
                 return;
@@ -71,10 +71,11 @@ namespace KBNBot
                         ProcessCommand(message);
                     else
                     {
-                        if(joker.CheckJokes(message.Text))
+                        if(!isSilent && (DateTime.Now - lastJokeCheck).TotalMinutes > SLEEP_BETWEEN_JOKE_CHECKS && joker.CheckJokes(message.Text))
                         {
+                            lastJokeCheck = DateTime.Now;
                             Console.WriteLine("I got a new joke, so funny.");
-                            //client.SendTextMessageAsync(message.Chat.Id, "😂", ParseMode.Default, false, false, message.MessageId);
+                            client.SendTextMessageAsync(message.Chat.Id, GOTIT_EMOTIONS[random.Next(GOTIT_EMOTIONS.Length)], ParseMode.Default, false, false, message.MessageId);
                         }
                     }
                     break;
@@ -86,6 +87,8 @@ namespace KBNBot
 
         private void ProcessGreetings(Message message)
         {
+            if (isSilent)
+                return;
             if (message.NewChatMember != null || message.NewChatMembers != null)
             {
                 Console.WriteLine("Brace yourself! Welcoming flood incoming now!");
@@ -133,6 +136,8 @@ namespace KBNBot
         }
         private async void Gimme(long chatId, int count)
         {
+            if (isSilent)
+                return;
             count = count > DEFAULT_GIFS_COUNT_MAX ? DEFAULT_GIFS_COUNT_MAX : count;
             for (int i = 0; i < count; i++)
             {
@@ -145,10 +150,14 @@ namespace KBNBot
         }
         private async void Season(long chatId)
         {
+            if (isSilent)
+                return;
             var seasonOpening = new DateTime(DateTime.Now.Year, DEFAULT_SEASON_OPENING_MONTH, DEFAULT_SEASON_OPENING_DAY, 0, 0, 0);
+            var sadoOpening = new DateTime(DateTime.Now.Year, 4, 15, 0, 0, 0);
             var tillSeason = (seasonOpening - DateTime.Now);
+            var tillMaso = (sadoOpening - DateTime.Now);
             if (tillSeason.TotalDays > 0)
-                await client.SendTextMessageAsync(chatId, string.Format("До сезона осталось ~ {0} дней, {1} часов и {2} минут!", tillSeason.Days, tillSeason.Hours, tillSeason.Minutes));
+                await client.SendTextMessageAsync(chatId, string.Format("До сезона осталось примерно: дней - {0}, часов - {1}, минут - {2}!" + Environment.NewLine + "А для извращенцев: дней - {3}, часов - {4}, минут - {5}!", tillSeason.Days, tillSeason.Hours, tillSeason.Minutes, tillMaso.Days, tillMaso.Hours, tillMaso.Minutes));
         }
 
         private async void ProcessDocument(Message message)
