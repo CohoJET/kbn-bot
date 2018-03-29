@@ -66,27 +66,34 @@ namespace KBNBot
             if (message == null)
                 return;
 
-            switch (message.Type)
+            try
             {
-                case MessageType.ServiceMessage:
-                    ProcessGreetings(message);
-                    break;
-                case MessageType.TextMessage:
-                    if (message.Text.StartsWith("/"))
-                        ProcessCommand(message);
-                    else
-                    {
-                        if(!isSilent && (DateTime.Now - lastJokeCheck).TotalMinutes > SLEEP_BETWEEN_JOKE_CHECKS && joker.CheckJokes(message.Text))
+                switch (message.Type)
+                {
+                    case MessageType.ServiceMessage:
+                        ProcessGreetings(message);
+                        break;
+                    case MessageType.TextMessage:
+                        if (message.Text.StartsWith("/"))
+                            ProcessCommand(message);
+                        else
                         {
-                            lastJokeCheck = DateTime.Now;
-                            Console.WriteLine("I got a new joke, so funny.");
-                            client.SendTextMessageAsync(message.Chat.Id, GOTIT_EMOTIONS[random.Next(GOTIT_EMOTIONS.Length)], ParseMode.Default, false, false, message.MessageId);
+                            if (!isSilent && (DateTime.Now - lastJokeCheck).TotalMinutes > SLEEP_BETWEEN_JOKE_CHECKS && joker.CheckJokes(message.Text))
+                            {
+                                lastJokeCheck = DateTime.Now;
+                                Console.WriteLine("I got a new joke, so funny.");
+                                client.SendTextMessageAsync(message.Chat.Id, GOTIT_EMOTIONS[random.Next(GOTIT_EMOTIONS.Length)], ParseMode.Default, false, false, message.MessageId);
+                            }
                         }
-                    }
-                    break;
-                case MessageType.DocumentMessage:
-                    ProcessDocument(message);
-                    break;
+                        break;
+                    case MessageType.DocumentMessage:
+                        ProcessDocument(message);
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
             }
         }
 
@@ -98,7 +105,7 @@ namespace KBNBot
             {
                 Console.WriteLine("Brace yourself! Welcoming flood incoming now!");
                 client.SendTextMessageAsync(message.Chat.Id, "Добро пожаловать!");
-                Gimme(message.Chat.Id, DEFAULT_GIFS_COUNT_MAX);
+                Gimme(message.Chat.Id, 10);
             }
         }
 
@@ -174,11 +181,13 @@ namespace KBNBot
         }
         private async void Bratishka(long chatId)
         {
+            if (isSilent)
+                return;
             var tuple = bratishker.GetRandomBratishka();
             using (var stream = new FileStream(tuple.Item1, System.IO.FileMode.Open))
             {
-                await client.SendPhotoAsync(chatId, new FileToSend("Братишка", stream), tuple.Item2);
-
+                await client.SendPhotoAsync(chatId, new FileToSend("Братишка", stream));
+                await client.SendTextMessageAsync(chatId, tuple.Item2);
             }
         }
 
